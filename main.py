@@ -5,8 +5,18 @@ from __future__ import annotations
 import argparse
 import gc
 import shutil
+from pathlib import Path
 
-from config import MODELS, OUTPUT_DIR, OUTPUT_EXCEL, OUTPUT_FIGURE, SAMPLE_SIZE, set_seed
+from config import (
+    DRIVE_OUTPUT_DIR,
+    MODELS,
+    OUTPUT_DIR,
+    OUTPUT_EXCEL,
+    OUTPUT_FIGURE,
+    SAMPLE_SIZE,
+    SAVE_TO_DRIVE,
+    set_seed,
+)
 from evaluation.evaluator import evaluate
 from evaluation.excel import save_evaluation
 from evaluation.plots import save_model_comparison
@@ -58,12 +68,30 @@ def main() -> None:
             results.append(result)
             save_evaluation(results)
             save_model_comparison(results)
+            backup_to_drive(model_name)
             logger.info("Completed %s: %s", model_name, result)
         finally:
             loader.unload()
             gc.collect()
 
     logger.info("Saved outputs to %s", OUTPUT_DIR)
+
+
+def backup_to_drive(model_name: str) -> None:
+    if not SAVE_TO_DRIVE:
+        return
+
+    if not Path("/content/drive").exists():
+        print("Warning: Google Drive is unavailable or not mounted; skipping backup.")
+        return
+
+    try:
+        model_dir = Path(DRIVE_OUTPUT_DIR) / model_name
+        model_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(OUTPUT_EXCEL, model_dir / f"evaluation_{model_name}.xlsx")
+        shutil.copy2(OUTPUT_FIGURE, model_dir / f"model_comparison_{model_name}.png")
+    except Exception as exc:
+        print(f"Warning: Google Drive backup failed: {exc}")
 
 
 def clean_outputs() -> None:
