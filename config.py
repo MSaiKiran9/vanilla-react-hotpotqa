@@ -123,6 +123,10 @@ OUTPUT_FIGURE = OUTPUT_DIR / "model_comparison.png"
 
 TRACE_LOG_DIR = LOG_DIR
 
+SAVE_TO_DRIVE = False
+
+DRIVE_OUTPUT_DIR = "/content/drive/MyDrive/VanillaReActResults"
+
 
 # =============================================================================
 # Plot Settings
