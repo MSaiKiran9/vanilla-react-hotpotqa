@@ -71,7 +71,7 @@ class ModelLoader:
             self.model_id,
             device_map="auto",
             trust_remote_code=True,
-            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+            dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
             quantization_config=quantization_config,
         )
 
@@ -94,10 +94,15 @@ class ModelLoader:
         ]
 
         try:
+            kwargs = {}
+            if "qwen" in self.model_id.lower():
+                kwargs["enable_thinking"] = False
+
             return self.tokenizer.apply_chat_template(
                 messages,
                 tokenize=False,
                 add_generation_prompt=True,
+                **kwargs,
             )
 
         except Exception:

@@ -21,6 +21,10 @@ class ParseError(Exception):
 
 
 class ReActParser:
+    THINK_PATTERN = re.compile(
+        r"<think>.*?</think>",
+        re.IGNORECASE | re.DOTALL,
+    )
     ACTION_PATTERN = re.compile(
         r"Action\s*:\s*(Search|Lookup|Finish)\s*\[(.*?)\]",
         re.IGNORECASE | re.DOTALL,
@@ -44,7 +48,7 @@ class ReActParser:
 
     @classmethod
     def parse(cls, text: str) -> ParsedStep:
-        text = text.strip()
+        text = cls.THINK_PATTERN.sub("", text).strip()
         action_match = cls.ACTION_PATTERN.search(text)
         if action_match is None:
             action_match = cls.BARE_ACTION_PATTERN.search(text)
@@ -69,6 +73,7 @@ class ReActParser:
 
     @classmethod
     def extract_answer(cls, text: str) -> str | None:
+        text = cls.THINK_PATTERN.sub("", text).strip()
         action_match = cls.ACTION_PATTERN.search(text)
         if action_match and action_match.group(1).lower() == "finish":
             answer = cls.normalize(action_match.group(2))

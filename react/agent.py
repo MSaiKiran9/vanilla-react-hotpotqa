@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from config import MAX_REACT_STEPS
+from config import DEBUG, MAX_REACT_STEPS
 from react.parser import ParseError, ReActParser
 from react.prompt import PromptBuilder
 
@@ -31,17 +31,29 @@ class ReActAgent:
 
         retrieval_failures = 0
         reasoning_failures = 0
+        action_observations = {}
 
         for iteration in range(1, MAX_REACT_STEPS + 1):
             prompt = builder.build()
             if iteration == MAX_REACT_STEPS:
                 prompt += "\nThis is the final step. Use Action: Finish[answer]."
 
+            if DEBUG:
+                print("\n--- PROMPT ---")
+                print(prompt)
+
             output = self.loader.generate(prompt)
+
+            if DEBUG:
+                print("\n--- RAW MODEL OUTPUT ---")
+                print(output)
 
             try:
                 step = self.parser.parse(output)
-            except ParseError:
+            except ParseError as exc:
+                if DEBUG:
+                    print("\n--- PARSER FAILURE ---")
+                    print(exc)
                 reasoning_failures += 1
                 return AgentResult(
                     answer="",
@@ -60,16 +72,20 @@ class ReActAgent:
 
             action_text = f"{step.action.title()}[{step.argument}]"
 
-            try:
-                if step.action == "search":
-                    observation = self.wiki.search_action(step.argument)
-                elif step.action == "lookup":
-                    observation = self.wiki.lookup_action(step.argument)
-                else:
-                    reasoning_failures += 1
-                    observation = "Invalid action."
-            except Exception as exc:
-                observation = f"Retrieval error: {exc}"
+            if action_text in action_observations:
+                observation = action_observations[action_text]
+            else:
+                try:
+                    if step.action == "search":
+                        observation = self.wiki.search_action(step.argument)
+                    elif step.action == "lookup":
+                        observation = self.wiki.lookup_action(step.argument)
+                    else:
+                        reasoning_failures += 1
+                        observation = "Invalid action."
+                except Exception as exc:
+                    observation = f"Retrieval error: {exc}"
+                action_observations[action_text] = observation
 
             if self._is_retrieval_failure(observation):
                 retrieval_failures += 1

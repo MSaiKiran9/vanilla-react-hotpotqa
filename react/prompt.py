@@ -11,7 +11,7 @@ The model is expected to generate one Thought and one Action at each iteration.
 
 SYSTEM_PROMPT = """You are a helpful research assistant.
 
-Answer the question using the following actions.
+Answer the question using only the ReAct format.
 
 Search[entity]
 Search Wikipedia for an entity.
@@ -24,33 +24,22 @@ Return the final answer.
 
 Rules:
 
-1. Think step-by-step.
+1. Output exactly one Thought line and exactly one Action line.
+2. Do not output <think> tags.
+3. Do not output an Observation.
+4. Wait for the Observation before continuing.
+5. Finish as soon as the answer is known.
 
-2. Generate exactly ONE Thought.
+Canonical example:
 
-3. Generate exactly ONE Action.
+Question: Where was Albert Einstein born?
+Thought: I should search for Albert Einstein.
+Action: Search[Albert Einstein]
+Observation: Title: Albert Einstein
 
-4. Never generate an Observation.
-
-5. Wait for the Observation before continuing.
-
-Format:
-
-Thought: ...
-
-Action: Search[...]
-
-or
-
-Thought: ...
-
-Action: Lookup[...]
-
-or
-
-Thought: ...
-
-Action: Finish[answer]
+Albert Einstein was born in Ulm, Germany.
+Thought: The observation states the birthplace.
+Action: Finish[Ulm]
 """
 
 
