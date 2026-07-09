@@ -83,10 +83,29 @@ class ModelLoader:
 
     def _build_prompt(self, prompt: str) -> str:
         """
-        Return the raw ReAct prompt without chat-template wrapping.
+        Use the tokenizer chat template when available.
         """
 
-        return prompt
+        messages = [
+            {
+                "role": "user",
+                "content": prompt,
+            }
+        ]
+
+        try:
+            kwargs = {}
+            if "qwen" in self.model_id.lower():
+                kwargs["enable_thinking"] = False
+
+            return self.tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+                **kwargs,
+            )
+        except Exception:
+            return prompt
 
     # ---------------------------------------------------------
 
