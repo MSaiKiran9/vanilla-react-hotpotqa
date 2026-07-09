@@ -10,8 +10,6 @@ using the official MediaWiki API.
 
 from __future__ import annotations
 
-import re
-
 import requests
 
 from config import (
@@ -23,11 +21,6 @@ from config import (
 )
 
 API_URL = "https://en.wikipedia.org/w/api.php"
-STOPWORDS = {
-    "a", "an", "and", "are", "as", "at", "by", "for", "from", "in", "is",
-    "of", "on", "or", "the", "to", "was", "were", "who", "what", "which",
-    "where", "when",
-}
 
 
 class WikipediaRetriever:
@@ -153,7 +146,6 @@ class WikipediaRetriever:
         ]
 
         keyword = keyword.lower()
-        keyword_terms = self._content_terms(keyword)
 
         hits = []
 
@@ -163,19 +155,9 @@ class WikipediaRetriever:
                 hits.append(paragraph)
 
         if not hits:
-            scored = []
-            for paragraph in paragraphs:
-                overlap = len(keyword_terms.intersection(self._content_terms(paragraph)))
-                if overlap:
-                    scored.append((overlap, paragraph))
-
-            if scored:
-                scored.sort(reverse=True, key=lambda item: item[0])
-                hits = [paragraph for _, paragraph in scored[:3]]
-            else:
-                observation = "Keyword not found."
-                self._lookup_cache[cache_key] = observation
-                return observation
+            observation = "Keyword not found."
+            self._lookup_cache[cache_key] = observation
+            return observation
 
         observation = "\n\n".join(hits)
 
@@ -204,10 +186,12 @@ class WikipediaRetriever:
         if not titles:
             return "No Wikipedia page found."
 
-        title, page = self._select_page(titles)
+        title = titles[0]
+
+        page = self.open_page(title)
 
         paragraphs = [p.strip() for p in page.split("\n") if p.strip()]
-        summary = self._build_observation(query, paragraphs)
+        summary = paragraphs[0] if paragraphs else "No extract available."
 
         observation = (
             f"Title: {title}\n\n"
@@ -233,57 +217,3 @@ class WikipediaRetriever:
 
         self.current_title = None
         self.current_page = None
-
-    # -------------------------------------------------------------
-
-    def _select_page(self, titles: list[str]) -> tuple[str, str]:
-        """
-        Prefer a concrete article over disambiguation/list pages.
-        """
-
-        fallback_title = titles[0]
-        fallback_page = self.open_page(fallback_title)
-
-        for title in titles:
-            if "(disambiguation)" in title.lower() or title.lower().startswith("list of"):
-                continue
-
-            page = self.open_page(title)
-            first_line = page.split("\n", 1)[0].lower()
-
-            if "may refer to" not in first_line and page.strip():
-                return title, page
-
-        return fallback_title, fallback_page
-
-    # -------------------------------------------------------------
-
-    def _build_observation(self, query: str, paragraphs: list[str]) -> str:
-        """
-        Return the lead paragraph plus query-relevant evidence paragraphs.
-        """
-
-        if not paragraphs:
-            return "No extract available."
-
-        query_terms = self._content_terms(query)
-        selected = [paragraphs[0]]
-
-        for paragraph in paragraphs[1:]:
-            paragraph_terms = self._content_terms(paragraph)
-            if query_terms and query_terms.intersection(paragraph_terms):
-                selected.append(paragraph)
-            if len("\n\n".join(selected)) >= MAX_OBSERVATION_CHARS:
-                break
-
-        return "\n\n".join(selected)[:MAX_OBSERVATION_CHARS]
-
-    # -------------------------------------------------------------
-
-    @staticmethod
-    def _content_terms(text: str) -> set[str]:
-        return {
-            token
-            for token in re.findall(r"[a-z0-9]+", text.lower())
-            if len(token) > 2 and token not in STOPWORDS
-        }
