@@ -54,7 +54,7 @@ MODELS = {
     "Qwen3-8B": "Qwen/Qwen3-8B",
     "Llama-3.1-8B": "meta-llama/Llama-3.1-8B",
     "Gemma-2-9B": "google/gemma-2-9b",
-    "Mistral-7B": "mistralai/Mistral-7B-Instruct-v0.3",
+    "Mistral-7B-Instruct-v0.3": "mistralai/Mistral-7B-Instruct-v0.3",
 }
 
 # Load one model at a time to reduce GPU memory usage.

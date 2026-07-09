@@ -10,15 +10,14 @@ using the official MediaWiki API.
 
 from __future__ import annotations
 
-import re
-from functools import lru_cache
-
 import requests
 
 from config import (
+    MAX_PAGE_CHARS,
     REQUEST_TIMEOUT,
     MAX_SEARCH_RESULTS,
     MAX_OBSERVATION_CHARS,
+    USER_AGENT,
 )
 
 API_URL = "https://en.wikipedia.org/w/api.php"
@@ -29,13 +28,15 @@ class WikipediaRetriever:
     def __init__(self):
 
         self.session = requests.Session()
+        self.session.headers.update({"User-Agent": USER_AGENT})
 
         self.current_title = None
         self.current_page = None
+        self._search_cache = {}
+        self._page_cache = {}
 
     # -------------------------------------------------------------
 
-    @lru_cache(maxsize=2048)
     def search(self, query: str):
         """
         Search Wikipedia.
@@ -46,11 +47,16 @@ class WikipediaRetriever:
             Candidate page titles.
         """
 
+        normalized_query = query.strip()
+
+        if normalized_query in self._search_cache:
+            return self._search_cache[normalized_query]
+
         params = {
             "action": "query",
             "list": "search",
             "format": "json",
-            "srsearch": query,
+            "srsearch": normalized_query,
             "srlimit": MAX_SEARCH_RESULTS,
         }
 
@@ -66,23 +72,32 @@ class WikipediaRetriever:
 
         results = []
 
-        for item in data["query"]["search"]:
+        for item in data.get("query", {}).get("search", []):
             results.append(item["title"])
+
+        self._search_cache[normalized_query] = results
 
         return results
 
     # -------------------------------------------------------------
 
-    @lru_cache(maxsize=2048)
     def open_page(self, title: str):
         """
         Download a Wikipedia page.
         """
 
+        normalized_title = title.strip()
+
+        if normalized_title in self._page_cache:
+            extract = self._page_cache[normalized_title]
+            self.current_title = normalized_title
+            self.current_page = extract
+            return extract
+
         params = {
             "action": "query",
             "prop": "extracts",
-            "titles": title,
+            "titles": normalized_title,
             "format": "json",
             "redirects": 1,
             "explaintext": 1,
@@ -100,10 +115,11 @@ class WikipediaRetriever:
 
         page = next(iter(pages.values()))
 
-        extract = page.get("extract", "")
+        extract = page.get("extract", "")[:MAX_PAGE_CHARS]
 
-        self.current_title = title
+        self.current_title = normalized_title
         self.current_page = extract
+        self._page_cache[normalized_title] = extract
 
         return extract
 
@@ -157,7 +173,8 @@ class WikipediaRetriever:
 
         page = self.open_page(title)
 
-        summary = page.split("\n")[0]
+        paragraphs = [p.strip() for p in page.split("\n") if p.strip()]
+        summary = paragraphs[0] if paragraphs else "No extract available."
 
         observation = (
             f"Title: {title}\n\n"

@@ -1,27 +1,11 @@
-"""
-Prompt builder for the Vanilla ReAct baseline.
+"""Prompt builder for the Vanilla ReAct baseline.
 
-This module builds the prompts sent to the language model.
-The implementation follows the original ReAct interaction:
+This module builds the prompts sent to the language model. The interaction is
+the original ReAct loop:
 
-Question
-↓
+Question -> Thought -> Action -> Observation -> Thought ...
 
-Thought
-↓
-
-Action
-
-↓
-
-Observation
-
-↓
-
-Thought ...
-
-The model is expected to generate ONE Thought and ONE Action
-at each iteration.
+The model is expected to generate one Thought and one Action at each iteration.
 """
 
 
@@ -71,27 +55,14 @@ Action: Finish[answer]
 
 
 class PromptBuilder:
-    """
-    Maintains the ReAct conversation.
-    """
+    """Maintains the ReAct conversation."""
 
     def __init__(self, question: str):
-
         self.question = question
-
         self.history = []
 
-    # ---------------------------------------------------------
-
-    def add_step(
-        self,
-        thought: str,
-        action: str,
-        observation: str,
-    ):
-        """
-        Add one completed ReAct step.
-        """
+    def add_step(self, thought: str, action: str, observation: str) -> None:
+        """Add one completed ReAct step."""
 
         self.history.append(
             {
@@ -101,48 +72,23 @@ class PromptBuilder:
             }
         )
 
-    # ---------------------------------------------------------
+    def build(self) -> str:
+        """Build the complete prompt."""
 
-    def build(self):
-        """
-        Build the complete prompt.
-        """
-
-        lines = []
-
-        lines.append(SYSTEM_PROMPT)
-        lines.append("")
-        lines.append(f"Question: {self.question}")
-        lines.append("")
+        lines = [SYSTEM_PROMPT, "", f"Question: {self.question}", ""]
 
         for step in self.history:
-
-            lines.append(
-                f"Thought: {step['thought']}"
-            )
-
-            lines.append(
-                f"Action: {step['action']}"
-            )
-
-            lines.append(
-                f"Observation: {step['observation']}"
-            )
-
+            lines.append(f"Thought: {step['thought']}")
+            lines.append(f"Action: {step['action']}")
+            lines.append(f"Observation: {step['observation']}")
             lines.append("")
 
         lines.append("Thought:")
 
         return "\n".join(lines)
 
-    # ---------------------------------------------------------
-
-    def reset(self):
-
+    def reset(self) -> None:
         self.history.clear()
 
-    # ---------------------------------------------------------
-
-    def __len__(self):
-
+    def __len__(self) -> int:
         return len(self.history)

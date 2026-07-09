@@ -23,8 +23,6 @@ from transformers import (
 from config import (
     MODELS,
     MAX_NEW_TOKENS,
-    TEMPERATURE,
-    TOP_P,
     DO_SAMPLE,
     REPETITION_PENALTY,
     USE_4BIT,
@@ -128,8 +126,6 @@ class ModelLoader:
         outputs = self.model.generate(
             **inputs,
             max_new_tokens=MAX_NEW_TOKENS,
-            temperature=TEMPERATURE,
-            top_p=TOP_P,
             do_sample=DO_SAMPLE,
             repetition_penalty=REPETITION_PENALTY,
             pad_token_id=self.tokenizer.eos_token_id,
@@ -150,8 +146,10 @@ class ModelLoader:
         Free GPU memory.
         """
 
-        del self.model
-        del self.tokenizer
+        if hasattr(self, "model"):
+            del self.model
+        if hasattr(self, "tokenizer"):
+            del self.tokenizer
 
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
