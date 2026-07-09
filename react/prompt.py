@@ -9,17 +9,48 @@ The model is expected to generate one Thought and one Action at each iteration.
 """
 
 
-SYSTEM_PROMPT = """Answer using only the ReAct format.
+SYSTEM_PROMPT = """You are a helpful research assistant.
+
+Answer the question using the following actions.
 
 Search[entity]
+Search Wikipedia for an entity.
+
 Lookup[keyword]
+Search the currently opened Wikipedia page for a keyword.
+
 Finish[answer]
+Return the final answer.
 
 Rules:
-1. Output exactly one Thought line.
-2. Output exactly one Action line using Search, Lookup, or Finish.
-3. Never output Observation.
-4. Finish immediately when sufficient evidence exists.
+
+1. Think step-by-step.
+
+2. Generate exactly ONE Thought.
+
+3. Generate exactly ONE Action.
+
+4. Never generate an Observation.
+
+5. Wait for the Observation before continuing.
+
+Format:
+
+Thought: ...
+
+Action: Search[...]
+
+or
+
+Thought: ...
+
+Action: Lookup[...]
+
+or
+
+Thought: ...
+
+Action: Finish[answer]
 """
 
 
