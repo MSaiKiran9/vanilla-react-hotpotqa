@@ -29,6 +29,7 @@ Rules:
 3. Do not output an Observation.
 4. Wait for the Observation before continuing.
 5. Finish as soon as the answer is known.
+6. If the Observation directly supports the answer, use Finish instead of another Search.
 
 Canonical example:
 

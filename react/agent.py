@@ -72,7 +72,9 @@ class ReActAgent:
 
             action_text = f"{step.action.title()}[{step.argument}]"
 
-            if action_text in action_observations:
+            is_new_action = action_text not in action_observations
+
+            if not is_new_action:
                 observation = action_observations[action_text]
             else:
                 try:
@@ -87,7 +89,7 @@ class ReActAgent:
                     observation = f"Retrieval error: {exc}"
                 action_observations[action_text] = observation
 
-            if self._is_retrieval_failure(observation):
+            if is_new_action and self._is_retrieval_failure(observation):
                 retrieval_failures += 1
 
             builder.add_step(step.thought, action_text, observation)
