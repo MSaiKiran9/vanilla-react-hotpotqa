@@ -67,11 +67,13 @@ class ModelLoader:
                 bnb_4bit_use_double_quant=True,
             )
 
+        device_map = {"": 0} if quantization_config is not None else "auto"
+
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_id,
-            device_map="auto",
+            device_map=device_map,
             trust_remote_code=True,
-            dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
             quantization_config=quantization_config,
         )
 
