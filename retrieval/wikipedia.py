@@ -1,63 +1,57 @@
 """
-Lightweight Wikipedia retrieval for the Vanilla ReAct baseline.
+Wikipedia retrieval module for Vanilla ReAct.
 
 Implements:
-- Search for page titles
-- Fetch page extracts
-- Simple in-memory caching
 
-Uses the official MediaWiki API.
+Search -> Open Page -> Lookup
+
+using the official MediaWiki API.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import re
 from functools import lru_cache
-from typing import List, Optional
 
 import requests
 
-from config import REQUEST_TIMEOUT, USER_AGENT
+from config import (
+    REQUEST_TIMEOUT,
+    MAX_SEARCH_RESULTS,
+    MAX_OBSERVATION_CHARS,
+)
 
 API_URL = "https://en.wikipedia.org/w/api.php"
 
 
-@dataclass(slots=True)
-class SearchResult:
-    title: str
-    snippet: str
-    pageid: int
-
-
 class WikipediaRetriever:
-    """
-    Simple MediaWiki API wrapper.
-    """
 
     def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update(
-            {
-                "User-Agent": USER_AGENT
-            }
-        )
 
-    @lru_cache(maxsize=4096)
-    def search(
-        self,
-        query: str,
-        limit: int = 5,
-    ) -> List[SearchResult]:
+        self.session = requests.Session()
+
+        self.current_title = None
+        self.current_page = None
+
+    # -------------------------------------------------------------
+
+    @lru_cache(maxsize=2048)
+    def search(self, query: str):
         """
         Search Wikipedia.
+
+        Returns
+        -------
+        list[str]
+            Candidate page titles.
         """
 
         params = {
             "action": "query",
             "list": "search",
-            "srsearch": query,
-            "srlimit": limit,
             "format": "json",
+            "srsearch": query,
+            "srlimit": MAX_SEARCH_RESULTS,
         }
 
         response = self.session.get(
@@ -72,25 +66,17 @@ class WikipediaRetriever:
 
         results = []
 
-        for item in data.get("query", {}).get("search", []):
-
-            results.append(
-                SearchResult(
-                    title=item["title"],
-                    snippet=item.get("snippet", ""),
-                    pageid=item["pageid"],
-                )
-            )
+        for item in data["query"]["search"]:
+            results.append(item["title"])
 
         return results
 
-    @lru_cache(maxsize=4096)
-    def get_page(
-        self,
-        title: str,
-    ) -> Optional[str]:
+    # -------------------------------------------------------------
+
+    @lru_cache(maxsize=2048)
+    def open_page(self, title: str):
         """
-        Fetch plain-text page extract.
+        Download a Wikipedia page.
         """
 
         params = {
@@ -98,8 +84,8 @@ class WikipediaRetriever:
             "prop": "extracts",
             "titles": title,
             "format": "json",
-            "explaintext": 1,
             "redirects": 1,
+            "explaintext": 1,
         }
 
         response = self.session.get(
@@ -112,48 +98,86 @@ class WikipediaRetriever:
 
         pages = response.json()["query"]["pages"]
 
-        for page in pages.values():
+        page = next(iter(pages.values()))
 
-            extract = page.get("extract")
+        extract = page.get("extract", "")
 
-            if extract:
-                return extract
+        self.current_title = title
+        self.current_page = extract
 
-        return None
+        return extract
 
-    def lookup(
-        self,
-        title: str,
-        keyword: str,
-        window: int = 2,
-    ) -> Optional[str]:
+    # -------------------------------------------------------------
+
+    def lookup(self, keyword: str):
         """
-        Return a small evidence window around
-        the first matching paragraph.
+        Return paragraph(s) containing keyword.
         """
 
-        page = self.get_page(title)
-
-        if page is None:
-            return None
+        if self.current_page is None:
+            return "No page opened."
 
         paragraphs = [
             p.strip()
-            for p in page.split("\n")
+            for p in self.current_page.split("\n")
             if p.strip()
         ]
 
-        keyword_lower = keyword.lower()
+        keyword = keyword.lower()
 
-        for i, paragraph in enumerate(paragraphs):
+        hits = []
 
-            if keyword_lower in paragraph.lower():
+        for paragraph in paragraphs:
 
-                start = max(0, i - window)
-                end = min(len(paragraphs), i + window + 1)
+            if keyword in paragraph.lower():
+                hits.append(paragraph)
 
-                return "\n\n".join(
-                    paragraphs[start:end]
-                )
+        if not hits:
+            return "Keyword not found."
 
-        return None
+        observation = "\n\n".join(hits)
+
+        return observation[:MAX_OBSERVATION_CHARS]
+
+    # -------------------------------------------------------------
+
+    def search_action(self, query: str):
+        """
+        Execute Search[query].
+
+        Returns formatted observation.
+        """
+
+        titles = self.search(query)
+
+        if not titles:
+            return "No Wikipedia page found."
+
+        title = titles[0]
+
+        page = self.open_page(title)
+
+        summary = page.split("\n")[0]
+
+        observation = (
+            f"Title: {title}\n\n"
+            f"{summary}"
+        )
+
+        return observation[:MAX_OBSERVATION_CHARS]
+
+    # -------------------------------------------------------------
+
+    def lookup_action(self, keyword: str):
+        """
+        Execute Lookup[keyword].
+        """
+
+        return self.lookup(keyword)
+
+    # -------------------------------------------------------------
+
+    def reset(self):
+
+        self.current_title = None
+        self.current_page = None

@@ -1,119 +1,148 @@
 """
-Prompt templates for the Vanilla ReAct agent.
+Prompt builder for the Vanilla ReAct baseline.
 
-The prompt closely follows the original ReAct format:
+This module builds the prompts sent to the language model.
+The implementation follows the original ReAct interaction:
 
-Thought -> Action -> Observation -> ...
+Question
+↓
 
-Supported actions:
+Thought
+↓
 
-Search[entity]
-Lookup[keyword]
-Finish[answer]
+Action
+
+↓
+
+Observation
+
+↓
+
+Thought ...
+
+The model is expected to generate ONE Thought and ONE Action
+at each iteration.
 """
 
-SYSTEM_PROMPT = """You are a helpful research assistant that answers multi-hop questions.
 
-You must solve the question by reasoning step-by-step.
+SYSTEM_PROMPT = """You are a helpful research assistant.
 
-You may use the following actions:
+Answer the question using the following actions.
 
 Search[entity]
-- Search Wikipedia for an entity.
+Search Wikipedia for an entity.
 
 Lookup[keyword]
-- Look up a keyword in the currently opened Wikipedia page.
+Search the currently opened Wikipedia page for a keyword.
 
 Finish[answer]
-- Return the final answer.
+Return the final answer.
 
-Use the following format exactly:
+Rules:
 
-Question: <question>
+1. Think step-by-step.
 
-Thought: <reasoning>
+2. Generate exactly ONE Thought.
+
+3. Generate exactly ONE Action.
+
+4. Never generate an Observation.
+
+5. Wait for the Observation before continuing.
+
+Format:
+
+Thought: ...
 
 Action: Search[...]
 
-Observation: ...
+or
 
 Thought: ...
 
 Action: Lookup[...]
 
-Observation: ...
+or
 
 Thought: ...
 
 Action: Finish[answer]
-
-Only produce one Thought and one Action at a time.
-Never produce an Observation yourself.
-Wait for the Observation before continuing.
 """
 
 
-def build_initial_prompt(question: str) -> str:
+class PromptBuilder:
     """
-    Build the initial prompt presented to the model.
-
-    Parameters
-    ----------
-    question : str
-
-    Returns
-    -------
-    str
+    Maintains the ReAct conversation.
     """
 
-    return (
-        SYSTEM_PROMPT
-        + "\n\n"
-        + f"Question: {question}\n"
-    )
+    def __init__(self, question: str):
 
+        self.question = question
 
-def append_step(
-    conversation: str,
-    thought: str,
-    action: str,
-    observation: str,
-) -> str:
-    """
-    Append one completed ReAct step.
-    """
+        self.history = []
 
-    return (
-        conversation
-        + f"Thought: {thought}\n"
-        + f"Action: {action}\n"
-        + f"Observation: {observation}\n"
-    )
+    # ---------------------------------------------------------
 
+    def add_step(
+        self,
+        thought: str,
+        action: str,
+        observation: str,
+    ):
+        """
+        Add one completed ReAct step.
+        """
 
-def append_observation(
-    conversation: str,
-    observation: str,
-) -> str:
-    """
-    Append an observation followed by a new Thought prompt.
-    """
+        self.history.append(
+            {
+                "thought": thought,
+                "action": action,
+                "observation": observation,
+            }
+        )
 
-    return (
-        conversation
-        + f"Observation: {observation}\n"
-        + "Thought: "
-    )
+    # ---------------------------------------------------------
 
+    def build(self):
+        """
+        Build the complete prompt.
+        """
 
-def continue_prompt(
-    conversation: str,
-) -> str:
-    """
-    Return the prompt for the next generation.
-    """
+        lines = []
 
-    if conversation.endswith("Thought: "):
-        return conversation
+        lines.append(SYSTEM_PROMPT)
+        lines.append("")
+        lines.append(f"Question: {self.question}")
+        lines.append("")
 
-    return conversation + "\nThought: "
+        for step in self.history:
+
+            lines.append(
+                f"Thought: {step['thought']}"
+            )
+
+            lines.append(
+                f"Action: {step['action']}"
+            )
+
+            lines.append(
+                f"Observation: {step['observation']}"
+            )
+
+            lines.append("")
+
+        lines.append("Thought:")
+
+        return "\n".join(lines)
+
+    # ---------------------------------------------------------
+
+    def reset(self):
+
+        self.history.clear()
+
+    # ---------------------------------------------------------
+
+    def __len__(self):
+
+        return len(self.history)

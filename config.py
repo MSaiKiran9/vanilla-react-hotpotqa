@@ -65,7 +65,7 @@ LOAD_ONE_MODEL_AT_A_TIME = True
 # NOTE:
 # This is disabled by default.
 # We will add support inside models/loader.py.
-USE_4BIT = False
+USE_4BIT = True
 
 
 # =============================================================================
