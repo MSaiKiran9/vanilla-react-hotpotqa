@@ -1,39 +1,29 @@
 """
-Parser for Vanilla ReAct model outputs.
+Parser for Vanilla ReAct outputs.
 
 Expected model output:
 
 Thought: ...
-Action: Search[entity]
+
+Action: Search[...]
 
 or
 
 Thought: ...
-Action: Lookup[keyword]
+
+Action: Lookup[...]
 
 or
 
 Thought: ...
-Action: Finish[answer]
+
+Action: Finish[...]
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Optional
-
-
-# Compile once for speed.
-THOUGHT_RE = re.compile(
-    r"Thought\s*:\s*(.*?)(?=\n\s*Action\s*:|$)",
-    flags=re.IGNORECASE | re.DOTALL,
-)
-
-ACTION_RE = re.compile(
-    r"Action\s*:\s*([A-Za-z]+)\s*\[(.*?)\]",
-    flags=re.IGNORECASE | re.DOTALL,
-)
 
 
 VALID_ACTIONS = {
@@ -45,119 +35,99 @@ VALID_ACTIONS = {
 
 @dataclass(slots=True)
 class ParsedStep:
-    """
-    Parsed ReAct step.
-    """
-
     thought: str
     action: str
     argument: str
 
-    @property
-    def is_finish(self) -> bool:
-        return self.action == "finish"
-
 
 class ParseError(Exception):
-    """Raised when model output cannot be parsed."""
+    pass
 
 
-def parse_step(text: str) -> ParsedStep:
-    """
-    Parse one ReAct generation.
+class ReActParser:
 
-    Parameters
-    ----------
-    text : str
-        Raw model output.
-
-    Returns
-    -------
-    ParsedStep
-
-    Raises
-    ------
-    ParseError
-        If the output is malformed.
-    """
-
-    text = text.strip()
-
-    thought_match = THOUGHT_RE.search(text)
-    action_match = ACTION_RE.search(text)
-
-    if action_match is None:
-        raise ParseError(
-            f"No valid Action found.\n\n{text}"
-        )
-
-    thought = ""
-
-    if thought_match:
-        thought = normalize_text(
-            thought_match.group(1)
-        )
-
-    action = action_match.group(1).strip().lower()
-
-    if action not in VALID_ACTIONS:
-        raise ParseError(
-            f"Unknown action '{action}'."
-        )
-
-    argument = normalize_text(
-        action_match.group(2)
+    ACTION_PATTERN = re.compile(
+        r"Action\s*:\s*(Search|Lookup|Finish)\s*\[(.*?)\]",
+        re.IGNORECASE | re.DOTALL,
     )
 
-    if not argument:
-        raise ParseError(
-            "Action argument is empty."
-        )
-
-    return ParsedStep(
-        thought=thought,
-        action=action,
-        argument=argument,
+    THOUGHT_PATTERN = re.compile(
+        r"Thought\s*:\s*(.*?)(?=\n\s*Action\s*:|$)",
+        re.IGNORECASE | re.DOTALL,
     )
 
+    @staticmethod
+    def normalize(text: str) -> str:
+        return " ".join(text.strip().split())
 
-def normalize_text(text: str) -> str:
-    """
-    Clean whitespace while preserving content.
-    """
+    @classmethod
+    def parse(cls, text: str) -> ParsedStep:
 
-    return " ".join(text.strip().split())
+        text = text.strip()
 
+        action_match = cls.ACTION_PATTERN.search(text)
 
-def extract_answer(text: str) -> Optional[str]:
-    """
-    Extract the final answer if Finish[...] exists.
+        if action_match is None:
+            raise ParseError(
+                f"No valid action found.\n\n{text}"
+            )
 
-    Returns
-    -------
-    str | None
-    """
+        thought_match = cls.THOUGHT_PATTERN.search(text)
 
-    try:
-        step = parse_step(text)
+        thought = ""
 
-        if step.is_finish:
-            return step.argument
+        if thought_match:
+            thought = cls.normalize(
+                thought_match.group(1)
+            )
 
-    except ParseError:
+        action = action_match.group(1).lower()
+
+        argument = cls.normalize(
+            action_match.group(2)
+        )
+
+        if action not in VALID_ACTIONS:
+            raise ParseError(
+                f"Unknown action {action}"
+            )
+
+        if not argument:
+            raise ParseError(
+                "Empty action argument."
+            )
+
+        return ParsedStep(
+            thought=thought,
+            action=action,
+            argument=argument,
+        )
+
+    @classmethod
+    def is_finish(cls, text: str):
+
+        try:
+
+            step = cls.parse(text)
+
+            return step.action == "finish"
+
+        except ParseError:
+
+            return False
+
+    @classmethod
+    def extract_answer(cls, text: str):
+
+        try:
+
+            step = cls.parse(text)
+
+            if step.action == "finish":
+                return step.argument
+
+        except ParseError:
+
+            pass
+
         return None
-
-    return None
-
-
-def is_valid_action(text: str) -> bool:
-    """
-    Quickly check whether the output contains
-    a valid ReAct action.
-    """
-
-    try:
-        parse_step(text)
-        return True
-    except ParseError:
-        return False
