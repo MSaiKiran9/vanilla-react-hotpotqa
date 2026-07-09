@@ -22,7 +22,7 @@ for directory in (DATA_DIR, OUTPUT_DIR, LOG_DIR):
 # Dataset
 # =============================================================================
 
-DATASET_NAME = "hotpot_qa"
+DATASET_NAME = "hotpotqa/hotpot_qa"
 DATASET_CONFIG = "distractor"
 
 # Number of evaluation samples.
