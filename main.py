@@ -88,8 +88,8 @@ def backup_to_drive(model_name: str) -> None:
     try:
         model_dir = Path(DRIVE_OUTPUT_DIR) / model_name
         model_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(OUTPUT_EXCEL, model_dir / f"evaluation_{model_name}.xlsx")
-        shutil.copy2(OUTPUT_FIGURE, model_dir / f"model_comparison_{model_name}.png")
+        shutil.copy2(OUTPUT_EXCEL, model_dir / "evaluation.xlsx")
+        shutil.copy2(OUTPUT_FIGURE, model_dir / "model_comparison.png")
     except Exception as exc:
         print(f"Warning: Google Drive backup failed: {exc}")
 
