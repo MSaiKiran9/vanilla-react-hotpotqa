@@ -33,7 +33,11 @@ class ReActAgent:
         reasoning_failures = 0
 
         for iteration in range(1, MAX_REACT_STEPS + 1):
-            output = self.loader.generate(builder.build())
+            prompt = builder.build()
+            if iteration == MAX_REACT_STEPS:
+                prompt += "\nThis is the final step. Use Action: Finish[answer]."
+
+            output = self.loader.generate(prompt)
 
             try:
                 step = self.parser.parse(output)

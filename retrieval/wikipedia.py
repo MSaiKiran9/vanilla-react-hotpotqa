@@ -34,6 +34,8 @@ class WikipediaRetriever:
         self.current_page = None
         self._search_cache = {}
         self._page_cache = {}
+        self._lookup_cache = {}
+        self._search_action_cache = {}
 
     # -------------------------------------------------------------
 
@@ -47,7 +49,7 @@ class WikipediaRetriever:
             Candidate page titles.
         """
 
-        normalized_query = query.strip()
+        normalized_query = query.strip().lower()
 
         if normalized_query in self._search_cache:
             return self._search_cache[normalized_query]
@@ -56,7 +58,7 @@ class WikipediaRetriever:
             "action": "query",
             "list": "search",
             "format": "json",
-            "srsearch": normalized_query,
+            "srsearch": query.strip(),
             "srlimit": MAX_SEARCH_RESULTS,
         }
 
@@ -133,6 +135,10 @@ class WikipediaRetriever:
         if self.current_page is None:
             return "No page opened."
 
+        cache_key = (self.current_title, keyword.strip().lower())
+        if cache_key in self._lookup_cache:
+            return self._lookup_cache[cache_key]
+
         paragraphs = [
             p.strip()
             for p in self.current_page.split("\n")
@@ -149,11 +155,15 @@ class WikipediaRetriever:
                 hits.append(paragraph)
 
         if not hits:
-            return "Keyword not found."
+            observation = "Keyword not found."
+            self._lookup_cache[cache_key] = observation
+            return observation
 
         observation = "\n\n".join(hits)
 
-        return observation[:MAX_OBSERVATION_CHARS]
+        observation = observation[:MAX_OBSERVATION_CHARS]
+        self._lookup_cache[cache_key] = observation
+        return observation
 
     # -------------------------------------------------------------
 
@@ -163,6 +173,13 @@ class WikipediaRetriever:
 
         Returns formatted observation.
         """
+
+        normalized_query = query.strip().lower()
+        if normalized_query in self._search_action_cache:
+            observation, title, page = self._search_action_cache[normalized_query]
+            self.current_title = title
+            self.current_page = page
+            return observation
 
         titles = self.search(query)
 
@@ -181,7 +198,9 @@ class WikipediaRetriever:
             f"{summary}"
         )
 
-        return observation[:MAX_OBSERVATION_CHARS]
+        observation = observation[:MAX_OBSERVATION_CHARS]
+        self._search_action_cache[normalized_query] = (observation, title, page)
+        return observation
 
     # -------------------------------------------------------------
 
