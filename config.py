@@ -58,9 +58,9 @@ DTYPE = (
 # }
 MODELS = {
     "Qwen3-8B": "Qwen/Qwen3-8B",
-    "Mistral-7B": "mistralai/Mistral-7B-Instruct-v0.3",
-    "Phi-4-mini": "microsoft/Phi-4-mini-instruct",
     "Qwen2.5-7B": "Qwen/Qwen2.5-7B-Instruct",
+    "Mistral-7B": "mistralai/Mistral-7B-Instruct-v0.3",
+    "Qwen2.5-3B": "Qwen/Qwen2.5-3B-Instruct",
 }
 # Load one model at a time to reduce GPU memory usage.
 LOAD_ONE_MODEL_AT_A_TIME = True
